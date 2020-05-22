@@ -90,3 +90,10 @@ def YZ():
 
 def ZZ():
     return np.einsum('ij,kl->ikjl', Z(), Z())
+
+################# following are tensors used in the CP basis.
+def E1():
+    return np.array([1,0,0,0],dtype=complex).reshape(2,2)
+
+def E2():
+    return np.array([0,0,0,1],dtype=complex).reshape(2,2)
