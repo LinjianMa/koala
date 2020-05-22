@@ -2,12 +2,12 @@
 This module implements canonical format quantum register.
 """
 
-from numbers import Number
 import numpy as np
 import copy
-
 import tensorbackends
 
+from .utils import *
+from .als import als
 from ..quantum_state import QuantumState
 from .gates import MultiRankGate, RankOneGate, SwapGate, get_gate
 
@@ -30,15 +30,10 @@ class CanonicalDecomp(QuantumState):
         return CanonicalDecomp(factors, self.backend)
 
     def norm(self):
-        return np.sqrt(self.inner(self))
+        return utils.norm(self.factors, self.backend)
 
     def inner(self, other):
-        hadamard_prod = self.factors[0] @ self.backend.transpose(
-            other.factors[0].conj())
-        for i in range(1, self.nsite):
-            hadamard_prod *= self.factors[i] @ self.backend.transpose(
-                other.factors[i].conj())
-        return self.backend.sum(hadamard_prod)
+        return utils.inner(self.factors, self.factors, self.backend)
 
     def get_statevector(self):
         out_str = "".join([chr(ord('a') + i) for i in range(self.nsite)])
@@ -49,17 +44,34 @@ class CanonicalDecomp(QuantumState):
                                                    1) + "->" + out_str
         return self.backend.einsum(einstr, *self.factors)
 
-    def apply_circuit(self, gates, debug=False):
-        for gate in gates:
-            if debug:
-                print(f"Applying gate: {gate}, CP rank is {self.rank}")
-            gate = get_gate(self.backend, gate)
+    def apply_circuit(self,
+                      gates,
+                      rank_threshold=800,
+                      compress_ratio=0.25,
+                      cp_tol=1e-5,
+                      cp_maxiter=60,
+                      cp_inneriter=20,
+                      debug=False):
+        for gatename in gates:
+            gate = get_gate(self.backend, gatename)
             if isinstance(gate, RankOneGate):
                 self.apply_rankone_gate_inplace(gate)
             elif isinstance(gate, SwapGate):
                 self.apply_swap_gate(gate.qubits)
             elif isinstance(gate, MultiRankGate):
                 self.factors = self.apply_multirank_gate(gate)
+            if debug:
+                print(
+                    f"After applying gate: {gatename}, CP rank is {self.rank}")
+            # apply CP compression
+            if self.rank > rank_threshold:
+                self.factors = als(self.factors,
+                                   self.backend,
+                                   int(self.rank * compress_ratio),
+                                   tol=cp_tol,
+                                   max_iter=cp_maxiter,
+                                   inner_iter=cp_inneriter,
+                                   debug=debug)
 
     def apply_rankone_gate_inplace(self, gate):
         for (i, qubit) in enumerate(gate.qubits):

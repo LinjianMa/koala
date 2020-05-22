@@ -30,23 +30,47 @@ def generate_circuit(nsite):
     return circuit
 
 
-def qft_candecomp(qstate, debug):
+def qft_candecomp(qstate,
+                  rank_threshold=800,
+                  compress_ratio=0.25,
+                  cp_tol=1e-5,
+                  cp_maxiter=60,
+                  cp_inneriter=20,
+                  debug=True):
     nsite = qstate.nsite
     circuit = generate_circuit(nsite)
-    qstate.apply_circuit(circuit, debug=debug)
+    qstate.apply_circuit(circuit,
+                         rank_threshold=rank_threshold,
+                         compress_ratio=compress_ratio,
+                         cp_tol=cp_tol,
+                         cp_maxiter=cp_maxiter,
+                         cp_inneriter=cp_inneriter,
+                         debug=debug)
 
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 8  # maximum 14
+    nsite = 22  # maximum 14
     debug = True
+    rank_threshold = 800
+    compress_ratio = 0.25
+    cp_tol = 1e-5
+    cp_maxiter = 60
+    cp_inneriter = 20
+
     tb = tensorbackends.get(backend)
 
     qstate = candecomp.random(nsite=nsite, rank=1, backend=backend)
     statevector = qstate.get_statevector()
 
-    qft_candecomp(qstate, debug=debug)
+    qft_candecomp(qstate,
+                  rank_threshold=rank_threshold,
+                  compress_ratio=compress_ratio,
+                  cp_tol=cp_tol,
+                  cp_maxiter=cp_maxiter,
+                  cp_inneriter=cp_inneriter,
+                  debug=debug)
     out_statevector = qstate.get_statevector()
     out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
 
-    print(tb.norm(out_statevector.ravel() - out_true))
+    print(tb.norm(out_statevector.ravel() - out_true) / tb.norm(out_true))
