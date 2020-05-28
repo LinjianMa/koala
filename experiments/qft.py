@@ -37,6 +37,7 @@ def qft_candecomp(qstate,
                   cp_tol=1e-5,
                   cp_maxiter=60,
                   cp_inneriter=20,
+                  init_als='random',
                   debug=True):
     nsite = qstate.nsite
     circuit = generate_circuit(nsite)
@@ -46,6 +47,7 @@ def qft_candecomp(qstate,
                          cp_tol=cp_tol,
                          cp_maxiter=cp_maxiter,
                          cp_inneriter=cp_inneriter,
+                         init_als=init_als,
                          debug=debug)
 
 
@@ -74,10 +76,27 @@ if __name__ == '__main__':
     cp_tol = 1e-5
     cp_maxiter = 100
     cp_inneriter = 20
+    in_state = 'random'
+    init_als = 'random'
+
+    # backend = 'numpy'
+    # nsite = 24
+    # debug = True
+    # rank_threshold = 10
+    # compress_ratio = 0.5
+    # cp_tol = 1e-5
+    # cp_maxiter = 100
+    # cp_inneriter = 20
+    # in_state = 'rectangular_pulse'
+    # init_als = 'factors'
 
     tb = tensorbackends.get(backend)
 
-    qstate = candecomp.random(nsite=nsite, rank=1, backend=backend)
+    if in_state == 'random':
+        qstate = candecomp.random(nsite=nsite, rank=1, backend=backend)
+    elif in_state == 'rectangular_pulse':
+        qstate = candecomp.rectangular_pulse(nsite=nsite, backend=backend)
+
     statevector = qstate.get_statevector()
     out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
 
@@ -89,6 +108,7 @@ if __name__ == '__main__':
                   cp_tol=cp_tol,
                   cp_maxiter=cp_maxiter,
                   cp_inneriter=cp_inneriter,
+                  init_als=init_als,
                   debug=debug)
 
     current_memory, peak_memory = tracemalloc.get_traced_memory()

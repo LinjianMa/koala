@@ -8,19 +8,26 @@ from .utils import initialize_random_factors, fitness, fidelity
 
 
 class ALSOptimizer(object):
-    def __init__(self, factors, backend, rank):
+    def __init__(self, factors, backend, rank, init_als):
         self.backend = backend
         self.factors = factors
         self.rank = rank
         self.nsite = len(factors)
         assert self.nsite >= 3
-        self.compressed_factors = initialize_random_factors(
-            rank, self.nsite, backend)
+
+        if init_als == 'factors':
+            self.compressed_factors = [
+                self.factors[i][:rank, :] for i in range(self.nsite)
+            ]
+        elif init_als == 'random':
+            self.compressed_factors = initialize_random_factors(
+                rank, self.nsite, backend)
 
     def step(self):
         for i in range(self.nsite):
             m = mttkrp(self.factors, self.compressed_factors, i)
-            g = gram(self.compressed_factors, i)
+            g = gram(self.compressed_factors,
+                     i) + 1e-7 * np.identity(self.rank)
             x = self.backend.astensor(la.solve(g, m))
             self.compressed_factors[i] = x
 
@@ -31,8 +38,9 @@ def als(factors,
         tol=1e-7,
         max_iter=200,
         inner_iter=10,
+        init_als='random',
         debug=False):
-    optimizer = ALSOptimizer(factors, backend, rank)
+    optimizer = ALSOptimizer(factors, backend, rank, init_als)
     num_iter = 0
     fidel_old, fidel = 0., 0.
 

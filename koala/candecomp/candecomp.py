@@ -54,6 +54,7 @@ class CanonicalDecomp(QuantumState):
                       cp_tol=1e-5,
                       cp_maxiter=60,
                       cp_inneriter=20,
+                      init_als='random',
                       debug=False):
         for gatename in gates:
             gate = get_gate(self.backend, gatename)
@@ -74,6 +75,7 @@ class CanonicalDecomp(QuantumState):
                                            tol=cp_tol,
                                            max_iter=cp_maxiter,
                                            inner_iter=cp_inneriter,
+                                           init_als=init_als,
                                            debug=debug)
                 self.theta += dtheta
                 self.fidelity_lower = np.cos(self.theta)
