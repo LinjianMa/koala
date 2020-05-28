@@ -16,6 +16,9 @@ class CanonicalDecomp(QuantumState):
     def __init__(self, factors, backend):
         self.backend = tensorbackends.get(backend)
         self.factors = factors
+        self.theta = 0.
+        self.fidelity_lower = 1.
+        self.fidelity_avg = 1.
 
     @property
     def nsite(self):
@@ -65,13 +68,16 @@ class CanonicalDecomp(QuantumState):
                     f"After applying gate: {gatename}, CP rank is {self.rank}")
             # apply CP compression
             if self.rank > rank_threshold:
-                self.factors = als(self.factors,
-                                   self.backend,
-                                   int(self.rank * compress_ratio),
-                                   tol=cp_tol,
-                                   max_iter=cp_maxiter,
-                                   inner_iter=cp_inneriter,
-                                   debug=debug)
+                self.factors, dtheta = als(self.factors,
+                                           self.backend,
+                                           int(self.rank * compress_ratio),
+                                           tol=cp_tol,
+                                           max_iter=cp_maxiter,
+                                           inner_iter=cp_inneriter,
+                                           debug=debug)
+                self.theta += dtheta
+                self.fidelity_lower = np.cos(self.theta)
+                self.fidelity_avg *= np.cos(dtheta)
 
     def apply_rankone_gate_inplace(self, gate):
         for (i, qubit) in enumerate(gate.qubits):

@@ -5,6 +5,7 @@ import numpy as np
 
 from collections import namedtuple
 from scipy import fft
+import tracemalloc
 
 Gate = namedtuple('Gate', ['name', 'parameters', 'qubits'])
 
@@ -48,20 +49,39 @@ def qft_candecomp(qstate,
                          debug=debug)
 
 
+def fidelity(out_vector, true_vector):
+    return out_vector @ true_vector.conj() / (tb.norm(true_vector) *
+                                              tb.norm(out_vector))
+
+
+def relative_residual(out_vector, true_vector):
+    return tb.norm(out_vector - true_vector) / tb.norm(true_vector)
+
+
+def argsort_diff(out_vector, true_vector):
+    out_vector_argsort = tb.argsort(tb.absolute(out_vector))
+    true_vector_argsort = tb.argsort(tb.absolute(true_vector))
+    argsort_diff = out_vector_argsort - true_vector_argsort
+    return tb.count_nonzero(argsort_diff)
+
+
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 22  # maximum 14
+    nsite = 28  # maximum 14
     debug = True
-    rank_threshold = 800
-    compress_ratio = 0.25
+    rank_threshold = 400
+    compress_ratio = 0.5
     cp_tol = 1e-5
-    cp_maxiter = 60
+    cp_maxiter = 100
     cp_inneriter = 20
 
     tb = tensorbackends.get(backend)
 
     qstate = candecomp.random(nsite=nsite, rank=1, backend=backend)
     statevector = qstate.get_statevector()
+    out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
+
+    tracemalloc.start()
 
     qft_candecomp(qstate,
                   rank_threshold=rank_threshold,
@@ -70,7 +90,20 @@ if __name__ == '__main__':
                   cp_maxiter=cp_maxiter,
                   cp_inneriter=cp_inneriter,
                   debug=debug)
-    out_statevector = qstate.get_statevector()
-    out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
 
-    print(tb.norm(out_statevector.ravel() - out_true) / tb.norm(out_true))
+    current_memory, peak_memory = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    print(f'current_memory is {current_memory / (1024 * 1024)} MB')
+    print(f'peak_memory is {peak_memory / (1024 * 1024)} MB')
+
+    out_statevector = qstate.get_statevector().ravel()
+
+    print(
+        f"Relative residual norm is {relative_residual(out_statevector, out_true)}"
+    )
+    print(f"Fidelity is {fidelity(out_statevector, out_true)}")
+    print(f"Fidelity lower bound is {qstate.fidelity_lower}")
+    print(f"Fidelity average is {qstate.fidelity_avg}")
+    print(
+        f"{argsort_diff(out_statevector, out_true)} different orders in the argsort of output"
+    )

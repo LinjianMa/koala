@@ -4,7 +4,7 @@ This module implements ALS algorithms for the CP compression.
 import numpy as np
 import tensorbackends
 import numpy.linalg as la
-from .utils import initialize_random_factors, norm, inner
+from .utils import initialize_random_factors, fitness, fidelity
 
 
 class ALSOptimizer(object):
@@ -34,7 +34,7 @@ def als(factors,
         debug=False):
     optimizer = ALSOptimizer(factors, backend, rank)
     num_iter = 0
-    fitness_old, fitness = 0., 0.
+    fidel_old, fidel = 0., 0.
 
     while num_iter < max_iter:
 
@@ -42,28 +42,19 @@ def als(factors,
             optimizer.step()
             num_iter += 1
 
-        # calculate the fitness
-        normsq_factors = inner(optimizer.factors, optimizer.factors, backend)
-        normsq_compressed_factors = inner(optimizer.compressed_factors,
-                                          optimizer.compressed_factors,
-                                          backend)
-        inner_product = inner(optimizer.factors, optimizer.compressed_factors,
-                              backend)
-        residual = np.sqrt(normsq_factors + normsq_compressed_factors -
-                           2 * inner_product)
-        norm_factors = np.sqrt(normsq_factors)
-        fitness = 1. - residual / norm_factors
-
+        # calculate the fidelity
+        fidel = fidelity(optimizer.factors, optimizer.compressed_factors,
+                         backend)
         if debug:
             print(
-                f"ALS iterations: at interations {num_iter} the fitness is {fitness}."
+                f"ALS iterations: at interations {num_iter} the fidelity is {fidel}."
             )
 
-        if abs(fitness - fitness_old) < tol:
-            return optimizer.compressed_factors
-        fitness_old = fitness
+        if abs(fidel - fidel_old) < tol:
+            return optimizer.compressed_factors, np.arccos(fidel)
+        fidel_old = fidel
 
-    return optimizer.compressed_factors
+    return optimizer.compressed_factors, np.arccos(fidel)
 
 
 def mttkrp(factors, compressed_factors, i):
