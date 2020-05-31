@@ -62,6 +62,17 @@ def H(backend, qubits):
 
 @_register
 @lru_cache(maxsize=None)
+def Hs(backend, qubits):
+    """
+    Note: this is not a elementary gate. Used for collapsing the CP ranks
+    """
+    operator = backend.astensor(tensors.H())
+    operators = [operator for _ in qubits]
+    return RankOneGate(qubits, operators)
+
+
+@_register
+@lru_cache(maxsize=None)
 def S(backend, qubits):
     assert len(qubits) == 1
     operator = backend.astensor(tensors.S())
@@ -94,6 +105,14 @@ def R(backend, qubits, theta):
 
 @_register
 @lru_cache(maxsize=None)
+def FLIP(backend, qubits):
+    assert len(qubits) == 1
+    operator = -backend.identity(2)
+    return RankOneGate(qubits, [operator])
+
+
+@_register
+@lru_cache(maxsize=None)
 def CR(backend, qubits, theta):
     assert len(qubits) == 2
     qubits_list = [[qubits[0]], qubits]
@@ -117,3 +136,37 @@ def CRs(backend, qubits, *theta_list):
     Rs = [backend.astensor(tensors.R(theta)) for theta in theta_list]
     operators_list = [[E1], [E2] + Rs]
     return MultiRankGate(qubits_list, operators_list)
+
+
+@_register
+@lru_cache(maxsize=None)
+def Uf(backend, qubits, *marked_states):
+    """
+    Uf gate used in the Grover's algorithm.
+        Ref: https://qiskit.org/textbook/ch-algorithms/grover.html#3qubits
+    """
+    assert len(qubits) >= 2
+    qubits_list = [[]] + [qubits for _ in marked_states]
+    E1 = backend.astensor(tensors.E1())
+    E2 = backend.astensor(tensors.E2())
+    operators_list = [[]]
+    for state in marked_states:
+        assert len(state) == len(qubits)
+        operators = []
+        for bit in state:
+            if bit == 0:
+                operator = E1
+            elif bit == 1:
+                operator = E2
+            operators.append(operator)
+        operators[0] = -2 * operators[0]
+        operators_list.append(operators)
+    return MultiRankGate(qubits_list, operators_list)
+
+
+@_register
+@lru_cache(maxsize=None)
+def U0(backend, qubits):
+    assert len(qubits) >= 2
+    marked_states = [tuple(0 for _ in range(len(qubits)))]
+    return Uf(backend, qubits, *marked_states)

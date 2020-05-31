@@ -11,6 +11,14 @@ def random(nsite, rank, backend='numpy'):
     return CanonicalDecomp(factors, backend)
 
 
+def basis(nsite, backend='numpy'):
+    backend = tensorbackends.get(backend)
+    shape = (1, 2)
+    unit_vector = backend.astensor(np.array([1, 0]).reshape(shape))
+    factors = [unit_vector for _ in range(nsite)]
+    return CanonicalDecomp(factors, backend)
+
+
 def rectangular_pulse(nsite, backend='numpy'):
     assert nsite % 2 == 0
     shape = (1, 2)
@@ -18,7 +26,7 @@ def rectangular_pulse(nsite, backend='numpy'):
     backend = tensorbackends.get(backend)
     factors = []
     for _ in range(int(nsite / 2)):
-        factors.append(backend.astensor(np.array([0, 1]).reshape(shape)))
+        factors.append(backend.astensor(np.array([1, 0]).reshape(shape)))
     for _ in range(int(nsite / 2), nsite):
         factors.append(backend.astensor(np.array([1, 1]).reshape(shape)))
 
