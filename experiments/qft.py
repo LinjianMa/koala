@@ -69,7 +69,7 @@ def argsort_diff(out_vector, true_vector):
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 28  # maximum 14
+    nsite = 28  # statevector maximum 14
     debug = True
     rank_threshold = 400
     compress_ratio = 0.5
@@ -98,7 +98,11 @@ if __name__ == '__main__':
         qstate = candecomp.rectangular_pulse(nsite=nsite, backend=backend)
 
     statevector = qstate.get_statevector()
-    out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
+
+    if backend == 'numpy':
+        out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
+    elif backend == 'ctf':
+        out_true = tb.astensor(fft(statevector.ravel().to_nparray(), norm="ortho"))
 
     tracemalloc.start()
 
@@ -124,6 +128,3 @@ if __name__ == '__main__':
     print(f"Fidelity is {fidelity(out_statevector, out_true)}")
     print(f"Fidelity lower bound is {qstate.fidelity_lower}")
     print(f"Fidelity average is {qstate.fidelity_avg}")
-    print(
-        f"{argsort_diff(out_statevector, out_true)} different orders in the argsort of output"
-    )

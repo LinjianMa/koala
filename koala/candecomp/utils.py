@@ -1,4 +1,16 @@
+import ctf
 import numpy as np
+import tensorbackends as tb
+
+
+def solve_sys(g, rhs, backend):
+    if isinstance(g.unwrap(), np.ndarray):
+        return np.linalg.solve(g, rhs)
+    elif isinstance(g.unwrap(), ctf.core.tensor):
+        rhs_t = rhs.transpose()
+        out_t = backend.solve_spd(g.transpose(), rhs_t)
+        out = out_t.transpose()
+        return out
 
 
 def initialize_random_factors(rank, nsite, backend):

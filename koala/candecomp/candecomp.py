@@ -105,6 +105,6 @@ class CanonicalDecomp(QuantumState):
                 factors[i].append(rank_one_factors[i])
 
         for i in range(self.nsite):
-            factors[i] = self.backend.concatenate(factors[i], axis=0)
+            factors[i] = self.backend.vstack(tuple(factors[i]))
 
         return factors

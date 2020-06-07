@@ -4,7 +4,7 @@ This module implements ALS algorithms for the CP compression.
 import numpy as np
 import tensorbackends
 import numpy.linalg as la
-from .utils import initialize_random_factors, fitness, fidelity
+from .utils import initialize_random_factors, fitness, fidelity, solve_sys
 
 
 class ALSOptimizer(object):
@@ -27,8 +27,8 @@ class ALSOptimizer(object):
         for i in range(self.nsite):
             m = mttkrp(self.factors, self.compressed_factors, i)
             g = gram(self.compressed_factors,
-                     i) + 1e-7 * np.identity(self.rank)
-            x = self.backend.astensor(la.solve(g, m))
+                     i) + 1e-7 * self.backend.identity(self.rank)
+            x = self.backend.astensor(solve_sys(g, m, self.backend))
             self.compressed_factors[i] = x
 
 

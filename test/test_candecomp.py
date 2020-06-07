@@ -1,7 +1,8 @@
 import unittest
 import copy
-import numpy as np
 import tensorbackends
+import ctf
+import numpy as np
 
 from scipy import fft
 from tensorbackends.utils import test_with_backend
@@ -9,7 +10,7 @@ from koala import Observable, candecomp, Gate, tensors
 from experiments.qft import qft_candecomp
 
 
-@test_with_backend(required=['numpy'], optional=[])
+@test_with_backend()
 class CanonicalDecomp(unittest.TestCase):
     def test_apply_rank_one_gate(self, backend):
         qstate = candecomp.random(nsite=4, rank=5, backend=backend)
@@ -30,7 +31,12 @@ class CanonicalDecomp(unittest.TestCase):
 
         qft_candecomp(qstate, debug=debug)
         out_statevector = qstate.get_statevector()
-        out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
+
+        if isinstance(statevector.unwrap(), np.ndarray):
+            out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
+        elif isinstance(statevector.unwrap(), ctf.core.tensor):
+            out_true = tb.astensor(
+                fft(statevector.ravel().to_nparray(), norm="ortho"))
 
         self.assertTrue(
             np.isclose(tb.norm(out_statevector.ravel() - out_true), 0.))
