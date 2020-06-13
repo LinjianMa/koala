@@ -13,15 +13,16 @@ class ALSOptimizer(object):
         self.factors = factors
         self.rank = rank
         self.nsite = len(factors)
-        assert self.nsite >= 3
+        assert self.nsite >= 2
 
         if init_als == 'factors':
             self.compressed_factors = [
                 self.factors[i][:rank, :] for i in range(self.nsite)
             ]
         elif init_als == 'random':
+            shape = (rank, self.factors[0].shape[1])
             self.compressed_factors = initialize_random_factors(
-                rank, self.nsite, backend)
+                shape, self.nsite, backend)
 
     def step(self):
         for i in range(self.nsite):

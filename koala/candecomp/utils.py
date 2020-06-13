@@ -13,8 +13,7 @@ def solve_sys(g, rhs, backend):
         return out
 
 
-def initialize_random_factors(rank, nsite, backend):
-    shape = (rank, 2)
+def initialize_random_factors(shape, nsite, backend):
     return [
         backend.random.uniform(-1, 1, shape) +
         1j * backend.random.uniform(-1, 1, shape) for _ in range(nsite)

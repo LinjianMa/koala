@@ -38,6 +38,7 @@ def qft_candecomp(qstate,
                   cp_maxiter=60,
                   cp_inneriter=20,
                   init_als='random',
+                  mode='state',
                   debug=True):
     nsite = qstate.nsite
     circuit = generate_circuit(nsite)
@@ -48,6 +49,7 @@ def qft_candecomp(qstate,
                          cp_maxiter=cp_maxiter,
                          cp_inneriter=cp_inneriter,
                          init_als=init_als,
+                         mode=mode,
                          debug=debug)
 
 
@@ -69,15 +71,28 @@ def argsort_diff(out_vector, true_vector):
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 28  # statevector maximum 14
+    nsite = 3  # statevector maximum 14
     debug = True
-    rank_threshold = 400
+    rank_threshold = 4
     compress_ratio = 0.5
-    cp_tol = 1e-5
+    cp_tol = 1e-10
     cp_maxiter = 100
     cp_inneriter = 20
     in_state = 'random'
     init_als = 'random'
+    mode = 'state'
+
+    # backend = 'numpy'
+    # nsite = 12  # statevector maximum 14
+    # debug = True
+    # rank_threshold = 2 # 2 ** (nsite - 1) / nsite
+    # compress_ratio = 0.5 # 1. / 2 #2 ** ((nsite - 1)/1.1) / 2 ** (nsite - 1)
+    # cp_tol = 1e-5
+    # cp_maxiter = 200
+    # cp_inneriter = 20
+    # in_state = 'identity'
+    # init_als = 'random'
+    # mode = 'operator'
 
     # backend = 'numpy'
     # nsite = 24
@@ -89,6 +104,8 @@ if __name__ == '__main__':
     # cp_inneriter = 20
     # in_state = 'rectangular_pulse'
     # init_als = 'factors'
+    # mode = 'state'
+    print(f"compress_ratio: {compress_ratio}")
 
     tb = tensorbackends.get(backend)
 
@@ -96,13 +113,19 @@ if __name__ == '__main__':
         qstate = candecomp.random(nsite=nsite, rank=1, backend=backend)
     elif in_state == 'rectangular_pulse':
         qstate = candecomp.rectangular_pulse(nsite=nsite, backend=backend)
+    elif in_state == 'identity':
+        qstate = candecomp.identity(nsite=nsite, backend=backend)
+
+    # qstate.factors[-1] = tb.astensor(np.asarray([1. + 1j, 0.]).reshape(1, 2))
+    qstate.factors[-1] = tb.astensor(np.asarray([0.5, .5 + 1j]).reshape(1, 2))
 
     statevector = qstate.get_statevector()
 
     if backend == 'numpy':
         out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
     elif backend == 'ctf':
-        out_true = tb.astensor(fft(statevector.ravel().to_nparray(), norm="ortho"))
+        out_true = tb.astensor(
+            fft(statevector.ravel().to_nparray(), norm="ortho"))
 
     tracemalloc.start()
 
@@ -113,7 +136,10 @@ if __name__ == '__main__':
                   cp_maxiter=cp_maxiter,
                   cp_inneriter=cp_inneriter,
                   init_als=init_als,
+                  mode=mode,
                   debug=debug)
+
+    # print(qstate.factors)
 
     current_memory, peak_memory = tracemalloc.get_traced_memory()
     tracemalloc.stop()
