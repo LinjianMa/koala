@@ -1,7 +1,8 @@
 """
 This module defines the gates used for the CP format simulator.
 """
-
+import copy
+import numpy as np
 from functools import lru_cache
 
 from .. import tensors
@@ -24,6 +25,19 @@ class RankOneGate(object):
     def __init__(self, qubits, operators):
         self.qubits = qubits
         self.operators = operators
+
+    def __add__(self, other):
+        qubits = copy.deepcopy(self.qubits)
+        operators = copy.deepcopy(self.operators)
+
+        for qubit, operator in zip(other.qubits, other.operators):
+            if qubit in self.qubits:
+                operators[qubits.index(qubit)] += operator
+            else:
+                qubits.append(qubit)
+                operators.append(operator)
+        # print(qubits, operators)
+        return RankOneGate(qubits, operators)
 
 
 class SwapGate(object):

@@ -3,11 +3,11 @@ This module implements canonical format quantum register.
 """
 
 import numpy as np
-import copy
+import copy, math, random
 import tensorbackends
 
 from .utils import *
-from .als import als
+from .als import als, als_onestep
 from ..quantum_state import QuantumState
 from .gates import MultiRankGate, RankOneGate, SwapGate, get_gate
 
@@ -47,6 +47,69 @@ class CanonicalDecomp(QuantumState):
                                                    1) + "->" + out_str
         return self.backend.einsum(einstr, *self.factors)
 
+    def apply_circuit_implicit(self,
+                               gates,
+                               rank_threshold=1024,
+                               cp_maxiter=60,
+                               compress_ratio=0.5):
+        num_sampled_multirank_gates = int(math.log(rank_threshold, 2))
+        assert num_sampled_multirank_gates == math.log(rank_threshold, 2)
+
+        # extract multirankgate
+        multirank_indices = []
+        for i, gatename in enumerate(gates):
+            gate = get_gate(self.backend, gatename)
+            if isinstance(gate, MultiRankGate):
+                multirank_indices.append(i)
+        assert len(multirank_indices) >= num_sampled_multirank_gates
+
+        out_factors = initialize_random_factors(
+            int(rank_threshold * compress_ratio), self.nsite, self.backend)
+        for iter in range(cp_maxiter):
+
+            nrm = norm(out_factors, self.backend)
+            nrm_input = norm(self.factors, self.backend)
+
+            # out_factors[-1] = nrm_input / nrm * out_factors[-1]
+            # nrm = norm(out_factors, self.backend)
+            print(nrm, nrm_input)
+
+            #get sampled gates
+            sampled_gates = []
+            sampled_multirank_indices = random.sample(
+                multirank_indices, k=num_sampled_multirank_gates)
+            for i, gatename in enumerate(gates):
+                gate = get_gate(self.backend, gatename)
+                if isinstance(
+                        gate,
+                        MultiRankGate) and i not in sampled_multirank_indices:
+                    # sampled_rank_one_index = [1]#random.choices(list(range(gate.rank)))
+                    # sampled_gates.append(gate.rank_one_gates[sampled_rank_one_index[0]])
+                    sampled_gates.append(gate.rank_one_gates[0] +
+                                         gate.rank_one_gates[1])
+                else:
+                    sampled_gates.append(gate)
+
+            random_factors = apply_gates(sampled_gates, self.nsite,
+                                         self.backend, self.factors)
+
+            nrm = norm(random_factors, self.backend)
+            nrm_self_factors = norm(self.factors, self.backend)
+            print("norm of the random factors", nrm, nrm_self_factors)
+
+            for _ in range(1):
+                out_factors = als_onestep(random_factors, out_factors,
+                                          self.backend,
+                                          int(rank_threshold * compress_ratio))
+            # for factor in out_factors:
+            #     for i in range(factor.shape[1]):
+            #         if np.linalg.norm(factor[:,i]) < 1e-7:
+            #             shape = [int(rank_threshold * compress_ratio)]
+            #             factor[:,i] = self.backend.random.uniform(-1, 1, shape) + 1j * self.backend.random.uniform(-1, 1, shape)
+            print(out_factors)
+
+        self.factors = out_factors
+
     def apply_circuit(self,
                       gates,
                       rank_threshold=800,
@@ -61,9 +124,10 @@ class CanonicalDecomp(QuantumState):
             if isinstance(gate, RankOneGate):
                 self.apply_rankone_gate_inplace(gate)
             elif isinstance(gate, SwapGate):
-                self.apply_swap_gate(gate.qubits)
+                self.factors = apply_swap_gate(gate.qubits, self.factors)
             elif isinstance(gate, MultiRankGate):
-                self.factors = self.apply_multirank_gate(gate)
+                self.factors = apply_multirank_gate(gate, self.nsite,
+                                                    self.backend, self.factors)
             if debug:
                 print(
                     f"After applying gate: {gatename}, CP rank is {self.rank}")
@@ -85,26 +149,47 @@ class CanonicalDecomp(QuantumState):
         for (i, qubit) in enumerate(gate.qubits):
             self.factors[qubit] = self.factors[qubit] @ gate.operators[i]
 
-    def apply_swap_gate(self, qubits):
-        assert len(qubits) == 2
-        temp_factor = self.factors[qubits[0]]
-        self.factors[qubits[0]] = self.factors[qubits[1]]
-        self.factors[qubits[1]] = temp_factor
 
-    def apply_rankone_gate(self, gate):
-        factors = copy.deepcopy(self.factors)
-        for (i, qubit) in enumerate(gate.qubits):
-            factors[qubit] = factors[qubit] @ gate.operators[i]
-        return factors
+def apply_swap_gate(qubits, in_factors):
+    factors = copy.deepcopy(in_factors)
+    assert len(qubits) == 2
+    temp_factor = factors[qubits[0]]
+    factors[qubits[0]] = factors[qubits[1]]
+    factors[qubits[1]] = temp_factor
+    return factors
 
-    def apply_multirank_gate(self, gate):
-        factors = [[] for _ in range(self.nsite)]
-        for rank_one_gate in gate.rank_one_gates:
-            rank_one_factors = self.apply_rankone_gate(rank_one_gate)
-            for i in range(self.nsite):
-                factors[i].append(rank_one_factors[i])
 
-        for i in range(self.nsite):
-            factors[i] = self.backend.vstack(tuple(factors[i]))
+def apply_rankone_gate(gate, in_factors):
+    factors = copy.deepcopy(in_factors)
+    for (i, qubit) in enumerate(gate.qubits):
+        nrm = np.linalg.norm(factors[qubit])
+        factors[qubit] = factors[qubit] @ gate.operators[i]
+        nrm2 = np.linalg.norm(factors[qubit])
+        print(gate.operators[i])
+        print("diffnorm", nrm - nrm2)
+    return factors
 
-        return factors
+
+def apply_multirank_gate(gate, nsite, backend, in_factors):
+    factors = [[] for _ in range(nsite)]
+    for rank_one_gate in gate.rank_one_gates:
+        rank_one_factors = apply_rankone_gate(rank_one_gate, in_factors)
+        for i in range(nsite):
+            factors[i].append(rank_one_factors[i])
+
+    for i in range(nsite):
+        factors[i] = backend.vstack(tuple(factors[i]))
+    return factors
+
+
+def apply_gates(gates, nsite, backend, factors):
+    for gate in gates:
+        if isinstance(gate, RankOneGate):
+            factors = apply_rankone_gate(gate, factors)
+        elif isinstance(gate, SwapGate):
+            factors = apply_swap_gate(gate.qubits, factors)
+        elif isinstance(gate, MultiRankGate):
+            factors = apply_multirank_gate(gate, len(factors), backend,
+                                           factors)
+        print(f"After applying gate: {gate}, CP rank is {factors[0].shape[0]}")
+    return factors
