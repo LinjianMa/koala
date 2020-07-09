@@ -70,29 +70,29 @@ def argsort_diff(out_vector, true_vector):
 
 
 if __name__ == '__main__':
-    backend = 'numpy'
-    nsite = 3  # statevector maximum 14
-    debug = True
-    rank_threshold = 4
-    compress_ratio = 0.5
-    cp_tol = 1e-10
-    cp_maxiter = 100
-    cp_inneriter = 20
-    in_state = 'random'
-    init_als = 'random'
-    mode = 'state'
-
     # backend = 'numpy'
-    # nsite = 12  # statevector maximum 14
+    # nsite = 3  # statevector maximum 14
     # debug = True
-    # rank_threshold = 2 # 2 ** (nsite - 1) / nsite
-    # compress_ratio = 0.5 # 1. / 2 #2 ** ((nsite - 1)/1.1) / 2 ** (nsite - 1)
-    # cp_tol = 1e-5
-    # cp_maxiter = 200
+    # rank_threshold = 4
+    # compress_ratio = 0.5
+    # cp_tol = 1e-10
+    # cp_maxiter = 100
     # cp_inneriter = 20
-    # in_state = 'identity'
+    # in_state = 'random'
     # init_als = 'random'
-    # mode = 'operator'
+    # mode = 'state'
+
+    backend = 'numpy'
+    nsite = 4  # statevector maximum 14
+    debug = True
+    rank_threshold = 4 * 2 ** (nsite - 1) / nsite
+    compress_ratio = 2 ** ((nsite - 1)/1.1) / 2 ** (nsite - 1)
+    cp_tol = 1e-5
+    cp_maxiter = 200
+    cp_inneriter = 20
+    in_state = 'identity'
+    init_als = 'random'
+    mode = 'operator'
 
     # backend = 'numpy'
     # nsite = 24
@@ -117,15 +117,15 @@ if __name__ == '__main__':
         qstate = candecomp.identity(nsite=nsite, backend=backend)
 
     # qstate.factors[-1] = tb.astensor(np.asarray([1. + 1j, 0.]).reshape(1, 2))
-    qstate.factors[-1] = tb.astensor(np.asarray([0.5, .5 + 1j]).reshape(1, 2))
+    # qstate.factors[-1] = tb.astensor(np.asarray([0.5, .5 + 1j]).reshape(1, 2))
 
-    statevector = qstate.get_statevector()
+    # statevector = qstate.get_statevector()
 
-    if backend == 'numpy':
-        out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
-    elif backend == 'ctf':
-        out_true = tb.astensor(
-            fft(statevector.ravel().to_nparray(), norm="ortho"))
+    # if backend == 'numpy':
+    #     out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
+    # elif backend == 'ctf':
+    #     out_true = tb.astensor(
+    #         fft(statevector.ravel().to_nparray(), norm="ortho"))
 
     tracemalloc.start()
 
@@ -146,11 +146,11 @@ if __name__ == '__main__':
     print(f'current_memory is {current_memory / (1024 * 1024)} MB')
     print(f'peak_memory is {peak_memory / (1024 * 1024)} MB')
 
-    out_statevector = qstate.get_statevector().ravel()
+    # out_statevector = qstate.get_statevector().ravel()
 
-    print(
-        f"Relative residual norm is {relative_residual(out_statevector, out_true)}"
-    )
-    print(f"Fidelity is {fidelity(out_statevector, out_true)}")
-    print(f"Fidelity lower bound is {qstate.fidelity_lower}")
-    print(f"Fidelity average is {qstate.fidelity_avg}")
+    # print(
+    #     f"Relative residual norm is {relative_residual(out_statevector, out_true)}"
+    # )
+    # print(f"Fidelity is {fidelity(out_statevector, out_true)}")
+    # print(f"Fidelity lower bound is {qstate.fidelity_lower}")
+    print(f"Fidelity average is {qstate.fidelity_avg * qstate.fidelity_avg}")

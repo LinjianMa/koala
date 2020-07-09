@@ -144,7 +144,7 @@ class CanonicalDecomp(QuantumState):
                 ]
                 factors, dtheta = als(factors,
                                       self.backend,
-                                      int(self.rank * compress_ratio),
+                                      int(rank_threshold),
                                       tol=cp_tol,
                                       max_iter=cp_maxiter,
                                       inner_iter=cp_inneriter,
