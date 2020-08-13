@@ -10,7 +10,7 @@ Gate = namedtuple('Gate', ['name', 'parameters', 'qubits'])
 
 
 def generate_circuit(marked_states, nsite):
-    num_layers = math.floor(math.pi / 4. * 2**(nsite / 2))
+    num_layers = math.floor(math.pi / 4. * np.sqrt(2**(nsite) / len(marked_states)))
     print(f"num_layers is {num_layers}")
 
     Hs_gate = Gate('Hs', [], [j for j in range(nsite)])
@@ -63,14 +63,14 @@ def get_factors_from_state(state, backend):
 if __name__ == '__main__':
     backend = 'numpy'
     nsite = 20
-    num_marked_states = 1
+    num_marked_states = 4
     debug = True
     rank_threshold = 5
     compress_ratio = 0.5
     cp_tol = 1e-5
     cp_maxiter = 100
     cp_inneriter = 20
-    init_als = 'factors'
+    init_als = 'random'
 
     tb = tensorbackends.get(backend)
 
