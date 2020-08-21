@@ -47,14 +47,83 @@ class CanonicalDecomp(QuantumState):
                                                    1) + "->" + out_str
         return self.backend.einsum(einstr, *self.factors)
 
+    def apply_circuit_qwalk(self, gates, debug=False):
+        for gatename in gates:
+            gate = get_gate(self.backend, gatename)
+            if isinstance(gate, RankOneGate):
+                self.apply_rankone_gate_inplace(gate)
+            elif isinstance(gate, SwapGate):
+                self.apply_swap_gate(gate.qubits)
+            elif isinstance(gate, MultiRankGate):
+                self.factors = self.apply_multirank_gate(gate)
+            if debug:
+                print(
+                    f"After applying gate: {gatename}, CP rank is {self.rank}")
+            # apply CP compression
+            if gatename.name == 'CX' or gatename.name == 'Uf':
+
+                one_vector = self.backend.astensor(
+                    np.array([0, 1], dtype=complex).reshape((1, 2)))
+                unit_vector = self.backend.astensor(
+                    np.array([1, 1], dtype=complex).reshape(
+                        (1, 2)) / np.sqrt(2))
+                h_factors = [unit_vector for _ in range(self.nsite)]
+                target_factors = [
+                    one_vector for _ in range(self.nsite // 2)
+                ] + [unit_vector for _ in range(self.nsite // 2)]
+                target_factors_trans = [
+                    unit_vector for _ in range(self.nsite // 2)
+                ] + [one_vector for _ in range(self.nsite // 2)]
+
+                inner_h = inner(self.factors, h_factors, self.backend)
+                inner_target = inner(self.factors, target_factors,
+                                     self.backend)
+                fidel_target_trans = 0.
+
+                nsite_vertices = self.nsite // 2
+                N_vertices = 2**nsite_vertices
+
+                fidel_h = (inner_h - inner_target / np.sqrt(N_vertices)) / (
+                    1. - 1. / N_vertices)
+                fidel_target = (inner_target * np.sqrt(N_vertices) -
+                                inner_h) / (np.sqrt(N_vertices) -
+                                            1. / np.sqrt(N_vertices))
+
+                print("[similarity to h]", fidel_h)
+                print("[similarity to target]", fidel_target)
+                print("[similarity to target trans]", fidel_target_trans)
+
+                factors = [[] for _ in range(self.nsite)]
+                self.compressed_factors = [[] for _ in range(self.nsite)]
+                factors[0].append(fidel_h * h_factors[0])
+                factors[0].append(fidel_target * target_factors[0])
+                factors[0].append(fidel_target_trans * target_factors_trans[0])
+                for i in range(1, self.nsite):
+                    factors[i].append(h_factors[i])
+                    factors[i].append(target_factors[i])
+                    factors[i].append(target_factors_trans[i])
+
+                for i in range(self.nsite):
+                    self.compressed_factors[i] = self.backend.vstack(
+                        tuple(factors[i]))
+
+                fidel = fidelity(self.factors, self.compressed_factors,
+                                 self.backend)
+                print(fidel)
+
+                self.fidelity_avg *= fidel
+                self.factors = self.compressed_factors
+
     def apply_circuit(self,
                       gates,
                       rank_threshold=800,
+                      hard_compression=False,
                       compress_ratio=0.25,
                       cp_tol=1e-5,
                       cp_maxiter=60,
                       cp_inneriter=20,
                       init_als='random',
+                      num_als_init=1,
                       debug=False):
         for gatename in gates:
             gate = get_gate(self.backend, gatename)
@@ -69,13 +138,19 @@ class CanonicalDecomp(QuantumState):
                     f"After applying gate: {gatename}, CP rank is {self.rank}")
             # apply CP compression
             if self.rank > rank_threshold:
+                if hard_compression:
+                    target_rank = rank_threshold
+                else:
+                    target_rank = int(self.rank * compress_ratio)
+
                 self.factors, dtheta = als(self.factors,
                                            self.backend,
-                                           int(self.rank * compress_ratio),
+                                           target_rank,
                                            tol=cp_tol,
                                            max_iter=cp_maxiter,
                                            inner_iter=cp_inneriter,
                                            init_als=init_als,
+                                           num_als_init=num_als_init,
                                            debug=debug)
                 self.theta += dtheta
                 self.fidelity_lower = np.cos(self.theta)

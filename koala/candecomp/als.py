@@ -39,8 +39,25 @@ def als(factors,
         max_iter=200,
         inner_iter=10,
         init_als='random',
+        num_als_init=1,
         debug=False):
-    optimizer = ALSOptimizer(factors, backend, rank, init_als)
+
+    if num_als_init > 1:
+        optimizers = [
+            ALSOptimizer(factors, backend, rank, init_als)
+            for _ in range(num_als_init)
+        ]
+        fidels = [1. for _ in range(num_als_init)]
+        for i in range(num_als_init):
+            for _ in range(10):
+                optimizers[i].step()
+            fidels[i] = fidelity(optimizers[i].factors,
+                                 optimizers[i].compressed_factors, backend)
+        ii = fidels.index(max(fidels))
+        optimizer = optimizers[ii]
+    else:
+        optimizer = ALSOptimizer(factors, backend, rank, init_als)
+
     num_iter = 0
     fidel_old, fidel = 0., 0.
 
