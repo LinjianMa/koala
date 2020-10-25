@@ -10,7 +10,8 @@ Gate = namedtuple('Gate', ['name', 'parameters', 'qubits'])
 
 
 def generate_circuit(marked_states, nsite):
-    num_layers = math.floor(math.pi / 4. * np.sqrt(2**(nsite) / len(marked_states)))
+    num_layers = math.floor(math.pi / 4. * np.sqrt(2**(nsite)))
+    # num_layers = math.floor(math.pi / 4. * np.sqrt(2**(nsite) / len(marked_states)))
     print(f"num_layers is {num_layers}")
 
     Hs_gate = Gate('Hs', [], [j for j in range(nsite)])
@@ -32,6 +33,7 @@ def grover_candecomp(marked_states,
                      cp_tol=1e-5,
                      cp_maxiter=60,
                      cp_inneriter=20,
+                     num_als_init=1,
                      init_als='random',
                      debug=True):
     nsite = len(marked_states[0])
@@ -43,6 +45,7 @@ def grover_candecomp(marked_states,
                          cp_tol=cp_tol,
                          cp_maxiter=cp_maxiter,
                          cp_inneriter=cp_inneriter,
+                         num_als_init=num_als_init,
                          init_als=init_als,
                          debug=debug)
     return qstate
@@ -62,22 +65,28 @@ def get_factors_from_state(state, backend):
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 20
-    num_marked_states = 4
+    nsite = 8
+    num_marked_states = 1
     debug = True
-    rank_threshold = 5
+    rank_threshold = 2
     compress_ratio = 0.5
     cp_tol = 1e-5
     cp_maxiter = 100
     cp_inneriter = 20
     init_als = 'random'
+    num_als_init = 3
 
     tb = tensorbackends.get(backend)
 
-    marked_states = [
-        tuple(np.random.randint(2, size=nsite))
-        for _ in range(num_marked_states)
-    ]
+    if num_marked_states == 1:
+        marked_states = [tuple([1 for _ in range(nsite)])]
+    else:
+        marked_states = [
+            tuple(np.random.randint(2, size=nsite))
+            for _ in range(num_marked_states)
+        ]
+        marked_states[0] = tuple([1 for _ in range(nsite)])
+
     marked_states_factors = [
         get_factors_from_state(state, tb) for state in marked_states
     ]
@@ -91,6 +100,7 @@ if __name__ == '__main__':
                               cp_tol=cp_tol,
                               cp_maxiter=cp_maxiter,
                               cp_inneriter=cp_inneriter,
+                              num_als_init=num_als_init,
                               init_als=init_als,
                               debug=debug)
 
@@ -99,7 +109,11 @@ if __name__ == '__main__':
     print(f'current_memory is {current_memory / (1024 * 1024)} MB')
     print(f'peak_memory is {peak_memory / (1024 * 1024)} MB')
 
+    overall_item_fidelity = 0.
     for i in range(num_marked_states):
-        print(
-            f"Fidelity for {i} is {candecomp.fidelity(marked_states_factors[i], qstate.factors, tb)}"
-        )
+        item_fidelity = candecomp.fidelity(marked_states_factors[i],
+                                           qstate.factors, tb)**2
+        print(f"Fidelity for {i} is {item_fidelity}")
+        overall_item_fidelity += item_fidelity
+    print(f"Overall item fidelity is {overall_item_fidelity}")
+    print(f"Fidelity average is {qstate.fidelity_avg ** 2}")

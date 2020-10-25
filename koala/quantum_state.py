@@ -4,7 +4,6 @@ This module defines the interface of a quantum state.
 
 from collections import namedtuple
 
-
 Gate = namedtuple('Gate', ['name', 'parameters', 'qubits'])
 
 

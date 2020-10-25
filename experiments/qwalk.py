@@ -15,41 +15,46 @@ def generate_walk_operator(nsite, mode="complete"):
     assert nsite % 2 == 0
     nsite_vertices = nsite // 2
 
-    thetas = []
-    for i in range(nsite_vertices - 1):
-        frac = (2**(nsite_vertices -
-                    (i + 1)) - 1) / (2**(nsite_vertices - i) - 1)
-        theta = np.arccos(np.sqrt(frac))
-        thetas.append(theta)
-
-    circuit = []
-
-    for i in range(nsite_vertices - 1):
-        c_qubit = nsite_vertices - i - 1
-        cd_qubits = [j for j in range(nsite_vertices, 2 * nsite_vertices - i)]
-        qubits = [c_qubit] + cd_qubits
-        L_gate = Gate('CL', [], qubits)
-        circuit.append(L_gate)
-    circuit.append(Gate('CX', [], [0, nsite_vertices]))
-
     second_register = [n for n in range(nsite_vertices, 2 * nsite_vertices)]
     U0_gate = Gate('U0', [], second_register)
 
+    circuit = []
+
     if mode == "complete":
+        thetas = []
+        for i in range(nsite_vertices - 1):
+            frac = (2**(nsite_vertices -
+                        (i + 1)) - 1) / (2**(nsite_vertices - i) - 1)
+            theta = np.arccos(np.sqrt(frac))
+            thetas.append(theta)
+
+        for i in range(nsite_vertices - 1):
+            c_qubit = nsite_vertices - i - 1
+            cd_qubits = [
+                j for j in range(nsite_vertices, 2 * nsite_vertices - i)
+            ]
+            qubits = [c_qubit] + cd_qubits
+            L_gate = Gate('CL', [], qubits)
+            circuit.append(L_gate)
+        circuit.append(Gate('CX', [], [0, nsite_vertices]))
+
         Kbinv_gate = Gate('Kbinv', thetas, second_register)
         Kb_gate = Gate('Kb', thetas, second_register)
         circuit += [Kbinv_gate, U0_gate, Kb_gate]
+
+        for i in range(nsite_vertices - 1):
+            c_qubit = nsite_vertices - i - 1
+            cd_qubits = [
+                j for j in range(nsite_vertices, 2 * nsite_vertices - i)
+            ]
+            qubits = [c_qubit] + cd_qubits
+            L_gate = Gate('CR', [], qubits)
+            circuit.append(L_gate)
+        circuit.append(Gate('CX', [], [0, nsite_vertices]))
+
     elif mode == "loop":
         Hs_gate = Gate('Hs', [], second_register)
         circuit += [Hs_gate, U0_gate, Hs_gate]
-
-    for i in range(nsite_vertices - 1):
-        c_qubit = nsite_vertices - i - 1
-        cd_qubits = [j for j in range(nsite_vertices, 2 * nsite_vertices - i)]
-        qubits = [c_qubit] + cd_qubits
-        L_gate = Gate('CR', [], qubits)
-        circuit.append(L_gate)
-    circuit.append(Gate('CX', [], [0, nsite_vertices]))
 
     for i in range(nsite_vertices):
         circuit.append(Gate('SWAP', [], [i, nsite_vertices + i]))
@@ -57,13 +62,16 @@ def generate_walk_operator(nsite, mode="complete"):
     return circuit
 
 
-def generate_circuit(nsite, marked_states, mode="loop"):
+def generate_circuit(nsite, mode="loop"):
     walk_step = generate_walk_operator(nsite, mode=mode)
-    Uf_gate = Gate('Uf', marked_states, [j for j in range(nsite)])
+
+    marked_states = [tuple([1 for _ in range(nsite // 2)])]
+    Uf_gate = Gate('Uf', marked_states, [j for j in range(nsite // 2)])
 
     circuit = []
     num_layers = math.floor(math.pi / 4. * np.sqrt(2**(nsite // 2)))
-    for i in range(1):
+    print("num_layers is: ", num_layers)
+    for i in range(num_layers):
         circuit += walk_step
         circuit += walk_step
         circuit.append(Uf_gate)
@@ -72,8 +80,6 @@ def generate_circuit(nsite, marked_states, mode="loop"):
 
 
 def qwalk_candecomp(nsite,
-                    marked_states,
-                    als=False,
                     backend='numpy',
                     rank_threshold=800,
                     cp_tol=1e-5,
@@ -83,21 +89,18 @@ def qwalk_candecomp(nsite,
                     num_als_init=5,
                     mode="loop",
                     debug=True):
-    circuit = generate_circuit(nsite, marked_states, mode)
+    circuit = generate_circuit(nsite, mode)
     qstate = candecomp.uniform(nsite=nsite, backend=backend)
 
-    if als:
-        qstate.apply_circuit(circuit,
-                             rank_threshold=rank_threshold,
-                             hard_compression=True,
-                             cp_tol=cp_tol,
-                             cp_maxiter=cp_maxiter,
-                             cp_inneriter=cp_inneriter,
-                             init_als=init_als,
-                             num_als_init=num_als_init,
-                             debug=debug)
-    else:
-        qstate.apply_circuit_qwalk(circuit, debug=debug)
+    qstate.apply_circuit(circuit,
+                         rank_threshold=rank_threshold,
+                         hard_compression=True,
+                         cp_tol=cp_tol,
+                         cp_maxiter=cp_maxiter,
+                         cp_inneriter=cp_inneriter,
+                         init_als=init_als,
+                         num_als_init=num_als_init,
+                         debug=debug)
     return qstate
 
 
@@ -126,19 +129,19 @@ def build_marked_states(nsite_vertices, mode):
         marked_states.append(tuple(marked_edge_state))
     return marked_states
 
+
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 6
+    nsite = 20
     debug = True
     mode = "loop"
 
     # ALS arguments
-    als = False
-    rank_threshold = 200
+    rank_threshold = 3
     cp_tol = 1e-8
     cp_maxiter = 100
     cp_inneriter = 20
-    num_als_init = 5
+    num_als_init = 1
     init_als = 'random'
 
     assert nsite % 2 == 0
@@ -156,9 +159,7 @@ if __name__ == '__main__':
     tracemalloc.start()
 
     qstate = qwalk_candecomp(nsite,
-                             marked_states,
                              backend=backend,
-                             als=als,
                              rank_threshold=rank_threshold,
                              cp_tol=cp_tol,
                              cp_maxiter=cp_maxiter,

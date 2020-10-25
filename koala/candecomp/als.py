@@ -8,20 +8,29 @@ from .utils import initialize_random_factors, fitness, fidelity, solve_sys
 
 
 class ALSOptimizer(object):
-    def __init__(self, factors, backend, rank, init_als):
+    def __init__(self, factors, backend, rank, init_als, prev_factors=None):
         self.backend = backend
         self.factors = factors
         self.rank = rank
         self.nsite = len(factors)
         assert self.nsite >= 3
 
-        if init_als == 'factors':
+        if prev_factors != None and self.rank == prev_factors[0].shape[0]:
+            self.compressed_factors = prev_factors
+        elif init_als == 'factors':
             self.compressed_factors = [
                 self.factors[i][:rank, :] for i in range(self.nsite)
             ]
         elif init_als == 'random':
             self.compressed_factors = initialize_random_factors(
                 rank, self.nsite, backend)
+        elif init_als == 'grover':
+            assert self.rank == 2
+            self.compressed_factors = initialize_random_factors(
+                rank, self.nsite, backend)
+            for i, factor in enumerate(self.compressed_factors):
+                factor[0,:] = np.asarray([1., 1.])
+                factor[1,:] = np.asarray([0., 1.])
 
     def step(self):
         for i in range(self.nsite):
@@ -40,11 +49,12 @@ def als(factors,
         inner_iter=10,
         init_als='random',
         num_als_init=1,
+        prev_factors=None,
         debug=False):
 
     if num_als_init > 1:
         optimizers = [
-            ALSOptimizer(factors, backend, rank, init_als)
+            ALSOptimizer(factors, backend, rank, init_als, prev_factors=prev_factors)
             for _ in range(num_als_init)
         ]
         fidels = [1. for _ in range(num_als_init)]
@@ -56,7 +66,7 @@ def als(factors,
         ii = fidels.index(max(fidels))
         optimizer = optimizers[ii]
     else:
-        optimizer = ALSOptimizer(factors, backend, rank, init_als)
+        optimizer = ALSOptimizer(factors, backend, rank, init_als, prev_factors=prev_factors)
 
     num_iter = 0
     fidel_old, fidel = 0., 0.

@@ -28,6 +28,17 @@ def uniform(nsite, backend='numpy'):
     return CanonicalDecomp(factors, backend)
 
 
+def hx(nsite, backend='numpy'):
+    backend = tensorbackends.get(backend)
+    assert nsite % 2 == 0
+
+    shape = (1, 2)
+    unit_vector = backend.astensor(np.array([1, 1], dtype=complex).reshape(shape) / np.sqrt(2))
+    one_vector = backend.astensor(np.array([0, 1], dtype=complex).reshape(shape))
+    factors = [unit_vector for _ in range(nsite // 2)] + [one_vector for _ in range(nsite // 2)]
+    return CanonicalDecomp(factors, backend)
+
+
 def complete_graph_input(nsite, backend='numpy'):
     backend = tensorbackends.get(backend)
 

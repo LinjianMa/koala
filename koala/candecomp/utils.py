@@ -1,4 +1,4 @@
-import ctf
+# import ctf
 import numpy as np
 import tensorbackends as tb
 

@@ -18,15 +18,15 @@ class Observable:
 
     @staticmethod
     def X(qubit):
-        return Observable([(tensors.X(), (qubit,))])
+        return Observable([(tensors.X(), (qubit, ))])
 
     @staticmethod
     def Y(qubit):
-        return Observable([(tensors.Y(), (qubit,))])
+        return Observable([(tensors.Y(), (qubit, ))])
 
     @staticmethod
     def Z(qubit):
-        return Observable([(tensors.Z(), (qubit,))])
+        return Observable([(tensors.Z(), (qubit, ))])
 
     @staticmethod
     def XX(first, second):
@@ -55,7 +55,8 @@ class Observable:
     @staticmethod
     def operator(tensor, qubits):
         if tensor.ndim != len(qubits) * 2:
-            raise ValueError(f'tensor shape and number of target qubits do not match')
+            raise ValueError(
+                f'tensor shape and number of target qubits do not match')
         return Observable([(tensor, qubits)])
 
     @staticmethod
@@ -69,13 +70,15 @@ class Observable:
         yield from self.operators
 
     def scale(self, a):
-        return Observable([(tensor*a, qubits) for tensor, qubits in self.operators])
+        return Observable([(tensor * a, qubits)
+                           for tensor, qubits in self.operators])
 
     def __pos__(self):
         return Observable([*self.operators])
 
     def __neg__(self):
-        return Observable([(-tensor, qubits) for tensor, qubits in self.operators])
+        return Observable([(-tensor, qubits)
+                           for tensor, qubits in self.operators])
 
     def __add__(self, other):
         return Observable([*self, *other])
@@ -95,8 +98,6 @@ class Observable:
         return NotImplemented
 
     def __str__(self):
-        operators_str = ';'.join(
-            f'{operator},{qubits}'
-            for operator, qubits in self.operators
-        )
+        operators_str = ';'.join(f'{operator},{qubits}'
+                                 for operator, qubits in self.operators)
         return f"Observable({operators_str})"
