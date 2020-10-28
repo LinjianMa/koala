@@ -47,6 +47,7 @@ def grover_candecomp(marked_states,
                          cp_inneriter=cp_inneriter,
                          num_als_init=num_als_init,
                          init_als=init_als,
+                         use_prev_factor=True,
                          debug=debug)
     return qstate
 

@@ -58,6 +58,7 @@ class CanonicalDecomp(QuantumState):
                       cp_inneriter=20,
                       init_als='random',
                       num_als_init=1,
+                      use_prev_factor=False,
                       debug=False):
         for gatename in gates:
             gate = get_gate(self.backend, gatename)
@@ -77,6 +78,10 @@ class CanonicalDecomp(QuantumState):
                 else:
                     target_rank = int(self.rank * compress_ratio)
 
+                if use_prev_factor:
+                    set_prev_factor = self.prev_factors
+                else:
+                    set_prev_factor = None
                 self.factors, dtheta = als(self.factors,
                                            self.backend,
                                            target_rank,
@@ -85,7 +90,7 @@ class CanonicalDecomp(QuantumState):
                                            inner_iter=cp_inneriter,
                                            init_als=init_als,
                                            num_als_init=num_als_init,
-                                           prev_factors=self.prev_factors,
+                                           prev_factors=set_prev_factor,
                                            debug=debug)
 
                 self.prev_factors = self.factors

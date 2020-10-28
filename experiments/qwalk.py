@@ -132,16 +132,16 @@ def build_marked_states(nsite_vertices, mode):
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 20
+    nsite = 14
     debug = True
-    mode = "loop"
+    mode = "complete"
 
     # ALS arguments
-    rank_threshold = 3
+    rank_threshold = 256
     cp_tol = 1e-8
     cp_maxiter = 100
     cp_inneriter = 20
-    num_als_init = 1
+    num_als_init = 3
     init_als = 'random'
 
     assert nsite % 2 == 0
