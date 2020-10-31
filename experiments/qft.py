@@ -102,7 +102,8 @@ if __name__ == '__main__':
     if backend == 'numpy':
         out_true = tb.astensor(fft(statevector.ravel(), norm="ortho"))
     elif backend == 'ctf':
-        out_true = tb.astensor(fft(statevector.ravel().to_nparray(), norm="ortho"))
+        out_true = tb.astensor(
+            fft(statevector.ravel().to_nparray(), norm="ortho"))
 
     tracemalloc.start()
 

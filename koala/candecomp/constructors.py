@@ -11,6 +11,18 @@ def random(nsite, rank, backend='numpy'):
     return CanonicalDecomp(factors, backend)
 
 
+def qft_inv_input(nsite, theta, backend='numpy'):
+    backend = tensorbackends.get(backend)
+    factors = []
+    shape = (1, 2)
+    for i in range(nsite):
+        factors.append(
+            backend.astensor(
+                np.array([1, np.exp(1j * 2 * np.pi * 2**i * theta)],
+                         dtype=complex).reshape(shape) / np.sqrt(2)))
+    return CanonicalDecomp(factors, backend)
+
+
 def basis(nsite, backend='numpy'):
     backend = tensorbackends.get(backend)
     shape = (1, 2)
@@ -33,9 +45,12 @@ def hx(nsite, backend='numpy'):
     assert nsite % 2 == 0
 
     shape = (1, 2)
-    unit_vector = backend.astensor(np.array([1, 1], dtype=complex).reshape(shape) / np.sqrt(2))
-    one_vector = backend.astensor(np.array([0, 1], dtype=complex).reshape(shape))
-    factors = [unit_vector for _ in range(nsite // 2)] + [one_vector for _ in range(nsite // 2)]
+    unit_vector = backend.astensor(
+        np.array([1, 1], dtype=complex).reshape(shape) / np.sqrt(2))
+    one_vector = backend.astensor(
+        np.array([0, 1], dtype=complex).reshape(shape))
+    factors = [unit_vector for _ in range(nsite // 2)
+               ] + [one_vector for _ in range(nsite // 2)]
     return CanonicalDecomp(factors, backend)
 
 

@@ -77,6 +77,9 @@ def sqrtW():
 def R(theta):
     return U1(theta)
 
+def Rinv(theta):
+    return np.linalg.inv(R(theta))
+
 
 def Ry(theta):
     # Note: this is the transpose of Ry comapred to the paper.

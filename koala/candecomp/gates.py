@@ -160,6 +160,21 @@ def CRs(backend, qubits, *theta_list):
 
 @_register
 @lru_cache(maxsize=None)
+def CRs_inv(backend, qubits, *theta_list):
+    """
+    Note: this is not a elementary gate. Used for collapsing the CP ranks
+    """
+    assert len(qubits) >= 2
+    qubits_list = [[qubits[0]], qubits]
+    E1 = backend.astensor(tensors.E1())
+    E2 = backend.astensor(tensors.E2())
+    Rs = [backend.astensor(tensors.Rinv(theta)) for theta in theta_list]
+    operators_list = [[E1], [E2] + Rs]
+    return MultiRankGate(qubits_list, operators_list)
+
+
+@_register
+@lru_cache(maxsize=None)
 def Uf(backend, qubits, *marked_states):
     """
     Uf gate used in the Grover's algorithm.
