@@ -21,6 +21,19 @@ def initialize_random_factors(rank, nsite, backend):
     ]
 
 
+def initialize_hosvd(factors, index, backend):
+    hadamard_prod = backend.ones(
+        (factors[0].shape[0], factors[0].shape[0])).astype('complex128')
+    for i in range(0, index):
+        hadamard_prod *= factors[i] @ backend.transpose(factors[i].conj())
+    for i in range(index + 1, len(factors)):
+        hadamard_prod *= factors[i] @ backend.transpose(factors[i].conj())
+    normal_mat = backend.einsum("ka,lb,kl->ab", factors[i], factors[i],
+                                hadamard_prod)
+    U, s, _ = backend.svd(normal_mat)
+    return backend.transpose(U)
+
+
 def norm(factors, backend):
     return np.sqrt(inner(factors, factors, backend))
 

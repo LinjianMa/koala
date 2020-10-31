@@ -4,7 +4,7 @@ This module implements ALS algorithms for the CP compression.
 import numpy as np
 import tensorbackends
 import numpy.linalg as la
-from .utils import initialize_random_factors, fitness, fidelity, solve_sys
+from .utils import initialize_random_factors, fitness, fidelity, solve_sys, initialize_hosvd
 
 
 class ALSOptimizer(object):
@@ -37,6 +37,11 @@ class ALSOptimizer(object):
             for i, factor in enumerate(self.compressed_factors):
                 factor[0, :] = np.asarray([1., 1.])
                 factor[1, :] = np.asarray([0., 1.])
+        elif init_als == 'hosvd':
+            self.compressed_factors = [
+                initialize_hosvd(self.factors, i, self.backend)
+                for i in range(len(self.factors))
+            ]
 
     def step(self):
         for i in range(self.nsite):
