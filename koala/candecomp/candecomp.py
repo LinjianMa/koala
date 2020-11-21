@@ -99,6 +99,74 @@ class CanonicalDecomp(QuantumState):
                 self.fidelity_lower = np.cos(self.theta)
                 self.fidelity_avg *= np.cos(dtheta)
 
+    def apply_circuit_grover(self, gates, rank_threshold=800, debug=False):
+        layer_num = 0
+        for gatename in gates:
+            gate = get_gate(self.backend, gatename)
+            if isinstance(gate, RankOneGate):
+                self.apply_rankone_gate_inplace(gate)
+            elif isinstance(gate, SwapGate):
+                self.apply_swap_gate(gate.qubits)
+            elif isinstance(gate, MultiRankGate):
+                self.factors = self.apply_multirank_gate(gate)
+            if debug:
+                print(
+                    f"After applying gate: {gatename}, CP rank is {self.rank}")
+            # apply CP compression
+            if self.rank > rank_threshold and gatename.name == "Uf":
+                if debug:
+                    print(f"Layer number is: {layer_num}")
+                layer_num += 1
+
+                factors_list = extract_rank1_tensors(self.factors)
+                K = len(factors_list)
+                i = 0
+                while i < K:
+                    indices_to_remove = []
+                    for j in range(i + 1, K):
+                        alpha = inner(factors_list[i], factors_list[j],
+                                      self.backend)
+                        beta = norm(factors_list[i], self.backend)
+                        gamma = norm(factors_list[j], self.backend)
+                        if beta == 0:
+                            break
+                        if gamma == 0:
+                            indices_to_remove.append(j)
+                            continue
+                        if 1. - 1e-5 < abs(alpha / (gamma * beta)) < 1. + 1e-5:
+                            factors_list[i][0] = (
+                                1 + alpha / beta**2) * factors_list[i][0]
+                            indices_to_remove.append(j)
+
+                    for index in reversed(indices_to_remove):
+                        del factors_list[index]
+                    i += 1
+                    K = len(factors_list)
+
+                # remove the elements where norm is 0, get all the rank-1 tensor norm
+                for index in reversed(range(len(factors_list))):
+                    if norm(factors_list[index], self.backend) == 0:
+                        del factors_list[index]
+                nrm_list = []
+                for index in range(len(factors_list)):
+                    nrm_list.append(
+                        (index, norm(factors_list[index], self.backend)))
+                nrm_list = sorted(nrm_list, key=lambda tup: tup[1])
+                nrm_list.reverse()
+
+                outfactors = [[] for _ in range(self.nsite)]
+                for i in range(self.nsite):
+                    for j in range(rank_threshold):
+                        outfactors[i].append(factors_list[nrm_list[j][0]][i])
+                    outfactors[i] = self.backend.vstack(tuple(outfactors[i]))
+
+                self.fidelity_lower = 0
+                fidel = fidelity(self.factors, outfactors, self.backend)
+                if debug:
+                    print(f"Fidelity is: {fidel}")
+                self.fidelity_avg *= fidel
+                self.factors = outfactors
+
     def apply_rankone_gate_inplace(self, gate):
         for (i, qubit) in enumerate(gate.qubits):
             self.factors[qubit] = self.factors[qubit] @ gate.operators[i]

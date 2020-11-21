@@ -35,20 +35,26 @@ def grover_candecomp(marked_states,
                      cp_inneriter=20,
                      num_als_init=1,
                      init_als='random',
+                     mode='als',
                      debug=True):
     nsite = len(marked_states[0])
     circuit = generate_circuit(marked_states, nsite)
     qstate = candecomp.basis(nsite=nsite, backend=backend)
-    qstate.apply_circuit(circuit,
-                         rank_threshold=rank_threshold,
-                         compress_ratio=compress_ratio,
-                         cp_tol=cp_tol,
-                         cp_maxiter=cp_maxiter,
-                         cp_inneriter=cp_inneriter,
-                         num_als_init=num_als_init,
-                         init_als=init_als,
-                         use_prev_factor=True,
-                         debug=debug)
+    if mode == "als":
+        qstate.apply_circuit(circuit,
+                             rank_threshold=rank_threshold,
+                             compress_ratio=compress_ratio,
+                             cp_tol=cp_tol,
+                             cp_maxiter=cp_maxiter,
+                             cp_inneriter=cp_inneriter,
+                             num_als_init=num_als_init,
+                             init_als=init_als,
+                             use_prev_factor=True,
+                             debug=debug)
+    elif mode == "direct":
+        qstate.apply_circuit_grover(circuit,
+                                    rank_threshold=rank_threshold,
+                                    debug=debug)
     return qstate
 
 
@@ -66,8 +72,8 @@ def get_factors_from_state(state, backend):
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 8
-    num_marked_states = 1
+    nsite = 15
+    num_marked_states = 20
     debug = True
     rank_threshold = 2
     compress_ratio = 0.5
@@ -76,6 +82,7 @@ if __name__ == '__main__':
     cp_inneriter = 20
     init_als = 'random'
     num_als_init = 3
+    mode = 'direct'
 
     tb = tensorbackends.get(backend)
 
@@ -103,6 +110,7 @@ if __name__ == '__main__':
                               cp_inneriter=cp_inneriter,
                               num_als_init=num_als_init,
                               init_als=init_als,
+                              mode=mode,
                               debug=debug)
 
     current_memory, peak_memory = tracemalloc.get_traced_memory()

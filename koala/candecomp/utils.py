@@ -61,3 +61,13 @@ def fitness(factors, compressed_factors, backend):
 def fidelity(factors, compressed_factors, backend):
     return inner(factors, compressed_factors, backend) / (
         norm(factors, backend) * norm(compressed_factors, backend))
+
+
+def extract_rank1_tensors(factors):
+    factors_list = []
+    for i in range(factors[0].shape[0]):
+        rank1_factors = []
+        for j in range(len(factors)):
+            rank1_factors.append(factors[j][i, :].reshape((1, 2)))
+        factors_list.append(rank1_factors)
+    return factors_list
