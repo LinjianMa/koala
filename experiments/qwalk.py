@@ -88,19 +88,26 @@ def qwalk_candecomp(nsite,
                     init_als='random',
                     num_als_init=5,
                     mode="loop",
+                    cpdmode="als",
                     debug=True):
     circuit = generate_circuit(nsite, mode)
     qstate = candecomp.uniform(nsite=nsite, backend=backend)
 
-    qstate.apply_circuit(circuit,
-                         rank_threshold=rank_threshold,
-                         hard_compression=True,
-                         cp_tol=cp_tol,
-                         cp_maxiter=cp_maxiter,
-                         cp_inneriter=cp_inneriter,
-                         init_als=init_als,
-                         num_als_init=num_als_init,
-                         debug=debug)
+    if cpdmode == "als":
+        qstate.apply_circuit(circuit,
+                             rank_threshold=rank_threshold,
+                             hard_compression=True,
+                             cp_tol=cp_tol,
+                             cp_maxiter=cp_maxiter,
+                             cp_inneriter=cp_inneriter,
+                             init_als=init_als,
+                             num_als_init=num_als_init,
+                             use_prev_factor=True,
+                             debug=debug)
+    elif cpdmode == "direct":
+        qstate.apply_circuit_grover(circuit,
+                                    rank_threshold=rank_threshold,
+                                    debug=debug)
     return qstate
 
 
@@ -132,12 +139,13 @@ def build_marked_states(nsite_vertices, mode):
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 14
+    nsite = 22
     debug = True
-    mode = "complete"
+    mode = "loop"
+    cpdmode = "direct"
 
     # ALS arguments
-    rank_threshold = 256
+    rank_threshold = 2
     cp_tol = 1e-8
     cp_maxiter = 100
     cp_inneriter = 20
@@ -167,6 +175,7 @@ if __name__ == '__main__':
                              init_als=init_als,
                              num_als_init=num_als_init,
                              mode=mode,
+                             cpdmode=cpdmode,
                              debug=debug)
 
     current_memory, peak_memory = tracemalloc.get_traced_memory()
