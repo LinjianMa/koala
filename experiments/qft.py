@@ -14,15 +14,22 @@ def theta(n):
     return -2 * math.pi / (2**n)
 
 
-def generate_circuit(nsite):
+def generate_circuit(nsite, mode):
     circuit = []
 
-    for i in range(nsite - 1):
-        circuit.append(Gate('H', [], [i]))
-        theta_list = [theta(j) for j in range(2, nsite + 1 - i)]
-        qubits = [j for j in range(i, nsite)]
-        circuit.append(Gate('CRs', theta_list, qubits))
-    circuit.append(Gate('H', [], [nsite - 1]))
+    if mode == 'als':
+        for i in range(nsite - 1):
+            circuit.append(Gate('H', [], [i]))
+            theta_list = [theta(j) for j in range(2, nsite + 1 - i)]
+            qubits = [j for j in range(i, nsite)]
+            circuit.append(Gate('CRs', theta_list, qubits))
+        circuit.append(Gate('H', [], [nsite - 1]))
+    elif mode == 'direct':
+        for i in range(nsite - 1):
+            circuit.append(Gate('H', [], [i]))
+            for j in reversed(range(2, nsite + 1 - i)):
+                circuit.append(Gate('CRi', [theta(j)], [j + i - 1, i]))
+        circuit.append(Gate('H', [], [nsite - 1]))
 
     # swap
     for i in range(int(nsite / 2)):
@@ -38,17 +45,23 @@ def qft_candecomp(qstate,
                   cp_maxiter=60,
                   cp_inneriter=20,
                   init_als='random',
+                  mode='als',
                   debug=True):
     nsite = qstate.nsite
-    circuit = generate_circuit(nsite)
-    qstate.apply_circuit(circuit,
-                         rank_threshold=rank_threshold,
-                         compress_ratio=compress_ratio,
-                         cp_tol=cp_tol,
-                         cp_maxiter=cp_maxiter,
-                         cp_inneriter=cp_inneriter,
-                         init_als=init_als,
-                         debug=debug)
+    circuit = generate_circuit(nsite, mode)
+    if mode == "als":
+        qstate.apply_circuit(circuit,
+                             rank_threshold=rank_threshold,
+                             compress_ratio=compress_ratio,
+                             cp_tol=cp_tol,
+                             cp_maxiter=cp_maxiter,
+                             cp_inneriter=cp_inneriter,
+                             init_als=init_als,
+                             debug=debug)
+    elif mode == "direct":
+        qstate.apply_circuit_direct_cpd(circuit,
+                                        rank_threshold=rank_threshold,
+                                        debug=debug)
 
 
 def fidelity(out_vector, true_vector):
@@ -78,6 +91,7 @@ if __name__ == '__main__':
     cp_inneriter = 20
     in_state = 'random'
     init_als = 'random'
+    mode = 'direct'
 
     # backend = 'numpy'
     # nsite = 24
@@ -96,6 +110,8 @@ if __name__ == '__main__':
         qstate = candecomp.random(nsite=nsite, rank=1, backend=backend)
     elif in_state == 'rectangular_pulse':
         qstate = candecomp.rectangular_pulse(nsite=nsite, backend=backend)
+    elif in_state == 'basis':
+        qstate = candecomp.basis(nsite=nsite, backend=backend)
 
     statevector = qstate.get_statevector()
 
@@ -114,6 +130,7 @@ if __name__ == '__main__':
                   cp_maxiter=cp_maxiter,
                   cp_inneriter=cp_inneriter,
                   init_als=init_als,
+                  mode=mode,
                   debug=debug)
 
     current_memory, peak_memory = tracemalloc.get_traced_memory()

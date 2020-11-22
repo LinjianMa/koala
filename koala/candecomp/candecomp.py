@@ -99,7 +99,7 @@ class CanonicalDecomp(QuantumState):
                 self.fidelity_lower = np.cos(self.theta)
                 self.fidelity_avg *= np.cos(dtheta)
 
-    def apply_circuit_grover(self, gates, rank_threshold=800, debug=False):
+    def apply_circuit_direct_cpd(self, gates, rank_threshold=800, debug=False):
         layer_num = 0
         for gatename in gates:
             gate = get_gate(self.backend, gatename)
@@ -113,7 +113,7 @@ class CanonicalDecomp(QuantumState):
                 print(
                     f"After applying gate: {gatename}, CP rank is {self.rank}")
             # apply CP compression
-            if self.rank > rank_threshold and gatename.name == "Uf":
+            if self.rank > rank_threshold:  # and gatename.name == "Uf":
                 if debug:
                     print(f"Layer number is: {layer_num}")
                 layer_num += 1
@@ -156,7 +156,7 @@ class CanonicalDecomp(QuantumState):
 
                 outfactors = [[] for _ in range(self.nsite)]
                 for i in range(self.nsite):
-                    for j in range(rank_threshold):
+                    for j in range(min(rank_threshold, len(nrm_list))):
                         outfactors[i].append(factors_list[nrm_list[j][0]][i])
                     outfactors[i] = self.backend.vstack(tuple(outfactors[i]))
 

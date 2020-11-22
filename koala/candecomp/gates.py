@@ -121,7 +121,7 @@ def FLIP(backend, qubits):
 
 @_register
 @lru_cache(maxsize=None)
-def CR(backend, qubits, theta):
+def CRi(backend, qubits, theta):
     assert len(qubits) == 2
     qubits_list = [[qubits[0]], qubits]
     E1 = backend.astensor(tensors.E1())
@@ -196,6 +196,47 @@ def Uf(backend, qubits, *marked_states):
             operators.append(operator)
         operators[0] = -2 * operators[0]
         operators_list.append(operators)
+    return MultiRankGate(qubits_list, operators_list)
+
+
+@_register
+@lru_cache(maxsize=None)
+def General_control(backend, qubits, *gatelist):
+    """
+    General controlled gate. gatelist can be (0, 1, 'X').
+    """
+    assert len(qubits) >= 2
+    qubits_list = [[], qubits, qubits]
+    E1 = backend.astensor(tensors.E1())
+    E2 = backend.astensor(tensors.E2())
+    X = backend.astensor(tensors.X())
+    Z = backend.astensor(tensors.Z())
+    H = backend.astensor(tensors.H())
+    I = backend.astensor(tensors.I())
+    assert len(gatelist) == len(qubits)
+
+    operators_list = [[]]
+    operators1 = []
+    operators2 = []
+    for gate in gatelist:
+        if gate == 0:
+            operators1.append(E1)
+            operators2.append(E1)
+        elif gate == 1:
+            operators1.append(E2)
+            operators2.append(E2)
+        elif gate == "X":
+            operators1.append(X)
+            operators2.append(I)
+        elif gate == "Z":
+            operators1.append(Z)
+            operators2.append(I)
+        elif gate == "H":
+            operators1.append(H)
+            operators2.append(I)
+        operators2[-1] = -operators2[-1]
+    operators_list.append(operators1)
+    operators_list.append(operators2)
     return MultiRankGate(qubits_list, operators_list)
 
 

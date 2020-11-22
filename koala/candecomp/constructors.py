@@ -40,6 +40,27 @@ def uniform(nsite, backend='numpy'):
     return CanonicalDecomp(factors, backend)
 
 
+def bipartite_uniform(nsite, backend='numpy'):
+    assert nsite % 2 == 0
+    nsite_vertices = nsite // 2 - 1
+
+    backend = tensorbackends.get(backend)
+    shape = (1, 2)
+    unit_vector = backend.astensor(
+        np.array([1, 1], dtype=complex).reshape(shape) / np.sqrt(2))
+
+    factors = [
+        backend.astensor(np.array([1, 0], dtype=complex).reshape(shape))
+    ]
+    for _ in range(nsite_vertices):
+        factors.append(unit_vector)
+    factors.append(
+        backend.astensor(np.array([0, 1], dtype=complex).reshape(shape)))
+    for _ in range(nsite_vertices):
+        factors.append(unit_vector)
+    return CanonicalDecomp(factors, backend)
+
+
 def hx(nsite, backend='numpy'):
     backend = tensorbackends.get(backend)
     assert nsite % 2 == 0

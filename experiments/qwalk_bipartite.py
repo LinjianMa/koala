@@ -11,65 +11,42 @@ import tracemalloc
 Gate = namedtuple('Gate', ['name', 'parameters', 'qubits'])
 
 
-def generate_walk_operator(nsite, mode="complete"):
+def generate_walk_operator(nsite):
     assert nsite % 2 == 0
-    nsite_vertices = nsite // 2
+    nsite_vertices = nsite // 2 - 1
 
-    second_register = [n for n in range(nsite_vertices, 2 * nsite_vertices)]
-    U0_gate = Gate('U0', [], second_register)
+    gates_H1 = [0, 1] + ['H' for _ in range(nsite_vertices)]
+    gates_H2 = [1, 0] + ['H' for _ in range(nsite_vertices)]
+    gates_Z1 = [0, 'Z'] + [0 for _ in range(nsite_vertices)]
+    gates_Z2 = [1, 'Z'] + [0 for _ in range(nsite_vertices)]
+    sites = [0, nsite_vertices + 1
+             ] + [nsite_vertices + 2 + i for i in range(nsite_vertices)]
 
     circuit = []
+    circuit.append(Gate('General_control', gates_H1, sites))
+    circuit.append(Gate('General_control', gates_Z1, sites))
+    circuit.append(Gate('General_control', gates_H1, sites))
 
-    if mode == "complete":
-        thetas = []
-        for i in range(nsite_vertices - 1):
-            frac = (2**(nsite_vertices -
-                        (i + 1)) - 1) / (2**(nsite_vertices - i) - 1)
-            theta = np.arccos(np.sqrt(frac))
-            thetas.append(theta)
+    circuit.append(Gate('General_control', gates_H2, sites))
+    circuit.append(Gate('CX', [], [0, nsite_vertices + 1]))
+    circuit.append(Gate('General_control', gates_Z2, sites))
+    circuit.append(Gate('CX', [], [0, nsite_vertices + 1]))
+    circuit.append(Gate('General_control', gates_H2, sites))
 
-        for i in range(nsite_vertices - 1):
-            c_qubit = nsite_vertices - i - 1
-            cd_qubits = [
-                j for j in range(nsite_vertices, 2 * nsite_vertices - i)
-            ]
-            qubits = [c_qubit] + cd_qubits
-            L_gate = Gate('CL', [], qubits)
-            circuit.append(L_gate)
-        circuit.append(Gate('CX', [], [0, nsite_vertices]))
-
-        Kbinv_gate = Gate('Kbinv', thetas, second_register)
-        Kb_gate = Gate('Kb', thetas, second_register)
-        circuit += [Kbinv_gate, U0_gate, Kb_gate]
-
-        for i in range(nsite_vertices - 1):
-            c_qubit = nsite_vertices - i - 1
-            cd_qubits = [
-                j for j in range(nsite_vertices, 2 * nsite_vertices - i)
-            ]
-            qubits = [c_qubit] + cd_qubits
-            L_gate = Gate('CR', [], qubits)
-            circuit.append(L_gate)
-        circuit.append(Gate('CX', [], [0, nsite_vertices]))
-
-    elif mode == "loop":
-        Hs_gate = Gate('Hs', [], second_register)
-        circuit += [Hs_gate, U0_gate, Hs_gate]
-
-    for i in range(nsite_vertices):
-        circuit.append(Gate('SWAP', [], [i, nsite_vertices + i]))
+    for i in range(nsite // 2):
+        circuit.append(Gate('SWAP', [], [i, nsite // 2 + i]))
 
     return circuit
 
 
-def generate_circuit(nsite, mode="loop"):
-    walk_step = generate_walk_operator(nsite, mode=mode)
+def generate_circuit(nsite):
+    walk_step = generate_walk_operator(nsite)
 
-    marked_states = [tuple([1 for _ in range(nsite // 2)])]
-    Uf_gate = Gate('Uf', marked_states, [j for j in range(nsite // 2)])
+    marked_states = [tuple([1 for _ in range(nsite // 2 - 1)])]
+    Uf_gate = Gate('Uf', marked_states, [j for j in range(1, nsite // 2)])
 
     circuit = []
-    num_layers = math.floor(math.pi / 4. * np.sqrt(2**(nsite // 2)))
+    num_layers = math.floor(math.pi / 4. * np.sqrt(2**(nsite // 2 - 1)))
     print("num_layers is: ", num_layers)
     for i in range(num_layers):
         circuit += walk_step
@@ -87,11 +64,10 @@ def qwalk_candecomp(nsite,
                     cp_inneriter=20,
                     init_als='random',
                     num_als_init=5,
-                    mode="loop",
                     cpdmode="als",
                     debug=True):
-    circuit = generate_circuit(nsite, mode)
-    qstate = candecomp.uniform(nsite=nsite, backend=backend)
+    circuit = generate_circuit(nsite)
+    qstate = candecomp.bipartite_uniform(nsite=nsite, backend=backend)
 
     if cpdmode == "als":
         qstate.apply_circuit(circuit,
@@ -102,7 +78,7 @@ def qwalk_candecomp(nsite,
                              cp_inneriter=cp_inneriter,
                              init_als=init_als,
                              num_als_init=num_als_init,
-                             use_prev_factor=True,
+                             use_prev_factor=False,
                              debug=debug)
     elif cpdmode == "direct":
         qstate.apply_circuit_direct_cpd(circuit,
@@ -111,19 +87,16 @@ def qwalk_candecomp(nsite,
     return qstate
 
 
-def build_marked_states(nsite_vertices, mode):
-    if mode == "loop":
-        num_edges = 2**nsite_vertices
-    elif mode == "complete":
-        num_edges = 2**nsite_vertices - 1
-
+def build_marked_states(nsite_vertices):
     marked_vertex_state = [1 for _ in range(nsite_vertices)]
     marked_states = []
 
-    for num in range(num_edges):
+    for num in range(2**nsite_vertices):
         list_binary_str = list(format(num, "b"))
         length = len(list_binary_str)
-        marked_edge_state = copy.deepcopy(marked_vertex_state)
+        marked_edge_state = [0]
+        marked_edge_state += copy.deepcopy(marked_vertex_state)
+        marked_edge_state += [1]
 
         for i in range(nsite_vertices - length):
             marked_edge_state.append(0)
@@ -139,13 +112,12 @@ def build_marked_states(nsite_vertices, mode):
 
 if __name__ == '__main__':
     backend = 'numpy'
-    nsite = 22
+    nsite = 24  # needs to be 8, 12, 16, 20.. to achieve high amplitude
     debug = True
-    mode = "loop"
-    cpdmode = "direct"
+    cpdmode = "als"
 
     # ALS arguments
-    rank_threshold = 2
+    rank_threshold = 40
     cp_tol = 1e-8
     cp_maxiter = 100
     cp_inneriter = 20
@@ -153,11 +125,11 @@ if __name__ == '__main__':
     init_als = 'random'
 
     assert nsite % 2 == 0
-    nsite_vertices = nsite // 2
+    nsite_vertices = nsite // 2 - 1
 
     tb = tensorbackends.get(backend)
 
-    marked_states = build_marked_states(nsite_vertices, mode)
+    marked_states = build_marked_states(nsite_vertices)
     print(marked_states)
 
     marked_states_factors = [
@@ -174,7 +146,6 @@ if __name__ == '__main__':
                              cp_inneriter=cp_inneriter,
                              init_als=init_als,
                              num_als_init=num_als_init,
-                             mode=mode,
                              cpdmode=cpdmode,
                              debug=debug)
 

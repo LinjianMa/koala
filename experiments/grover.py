@@ -52,9 +52,9 @@ def grover_candecomp(marked_states,
                              use_prev_factor=True,
                              debug=debug)
     elif mode == "direct":
-        qstate.apply_circuit_grover(circuit,
-                                    rank_threshold=rank_threshold,
-                                    debug=debug)
+        qstate.apply_circuit_direct_cpd(circuit,
+                                        rank_threshold=rank_threshold,
+                                        debug=debug)
     return qstate
 
 
