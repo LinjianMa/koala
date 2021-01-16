@@ -13,12 +13,15 @@ def solve_sys(g, rhs, backend):
         return out
 
 
-def initialize_random_factors(rank, nsite, backend):
+def initialize_random_factors(rank, nsite, backend, comp=True):
     shape = (rank, 2)
-    return [
-        backend.random.uniform(-1, 1, shape) +
-        1j * backend.random.uniform(-1, 1, shape) for _ in range(nsite)
-    ]
+    if comp:
+        return [
+            backend.random.uniform(-1, 1, shape) +
+            1j * backend.random.uniform(-1, 1, shape) for _ in range(nsite)
+        ]
+    else:
+        return [backend.random.uniform(-1, 1, shape) for _ in range(nsite)]
 
 
 def initialize_hosvd(factors, index, backend):

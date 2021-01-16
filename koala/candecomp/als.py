@@ -24,6 +24,11 @@ class ALSOptimizer(object):
         elif init_als == 'random':
             self.compressed_factors = initialize_random_factors(
                 rank, self.nsite, backend)
+        elif init_als == 'random-real':
+            self.compressed_factors = initialize_random_factors(rank,
+                                                                self.nsite,
+                                                                backend,
+                                                                comp=False)
         elif init_als == 'mixed':
             self.compressed_factors = initialize_random_factors(
                 rank, self.nsite, backend)

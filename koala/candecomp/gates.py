@@ -145,6 +145,18 @@ def CX(backend, qubits):
 
 @_register
 @lru_cache(maxsize=None)
+def CZ(backend, qubits):
+    assert len(qubits) == 2
+    qubits_list = [[qubits[0]], qubits]
+    E1 = backend.astensor(tensors.E1())
+    E2 = backend.astensor(tensors.E2())
+    Z = backend.astensor(tensors.Z())
+    operators_list = [[E1], [E2, Z]]
+    return MultiRankGate(qubits_list, operators_list)
+
+
+@_register
+@lru_cache(maxsize=None)
 def CRs(backend, qubits, *theta_list):
     """
     Note: this is not a elementary gate. Used for collapsing the CP ranks
